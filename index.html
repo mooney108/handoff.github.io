@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f7f8fa">
+  <title>handoff — BPO, without the back-and-forth</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700;750;800&family=Manrope:wght@400;500;600;650;700;750;800&display=swap');
+
+    :root {
+      --ink: #19251f;
+      --muted: #89918c;
+      --line: #edeeeb;
+      --green: #237b58;
+      --green-dark: #175e41;
+      --green-soft: #edf5ef;
+      --canvas: #f7f8f6;
+      --white: #fff;
+      --amber: #c48a38;
+      --red: #bd655b;
+      --shadow: 0 15px 42px rgba(31, 47, 38, .065);
+      font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-synthesis: none;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); min-height: 100vh; font-size: 13px; }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar { width: 228px; padding: 27px 15px 17px; background: var(--white); border-right: 1px solid var(--line); display: flex; flex-direction: column; position: fixed; inset: 0 auto 0 0; z-index: 5; overflow-y: auto; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 12px 32px; color: var(--ink); font: 800 22px Manrope, sans-serif; letter-spacing: -1.3px; }
+    .brand-mark { width: 29px; height: 29px; border-radius: 9px; display: grid; place-items: center; color: white; background: var(--green); }
+    .brand-mark svg { width: 17px; }
+    .workspace-label { font-size: 10px; color: #9ba19d; letter-spacing: 1.15px; font-weight: 700; padding: 0 12px; margin-bottom: 10px; }
+    .role-select { width: 100%; border: 1px solid var(--line); padding: 10px 10px; border-radius: 9px; background: #fff; color: #414c45; font-weight: 600; text-align: left; display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+    .role-left { display: flex; gap: 9px; align-items: center; }
+    .role-dot { width: 25px; height: 25px; border-radius: 7px; background: var(--green-soft); display: grid; place-items: center; color: var(--green); }
+    .role-dot svg { width: 14px; }
+    .nav-label { padding: 0 12px; color: #a0a6a2; font-size: 10px; letter-spacing: 1.1px; font-weight: 700; margin: 0 0 9px; }
+    .nav { display: grid; gap: 4px; margin-bottom: 27px; }
+    .nav-item { color: #707a73; padding: 10px 11px; border: 0; background: transparent; border-radius: 8px; display: flex; align-items: center; gap: 11px; text-align: left; font-weight: 550; width: 100%; transition: .18s; }
+    .nav-item:hover { color: var(--green); background: #f6f8f6; }
+    .nav-item.active { color: var(--green-dark); background: var(--green-soft); font-weight: 700; }
+    .nav-item svg { width: 17px; height: 17px; stroke-width: 1.7; flex: none; }
+    .nav-count { margin-left: auto; background: #e5eee7; color: var(--green); min-width: 19px; height: 19px; padding: 0 5px; border-radius: 6px; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
+    .sidebar-bottom { margin-top: auto; }
+    .help-card { margin: 0 3px 18px; padding: 14px; background: #f7f8f5; border-radius: 10px; }
+    .help-card strong { font-size: 12px; }
+    .help-card p { font-size: 11px; color: var(--muted); line-height: 1.55; margin: 6px 0 10px; }
+    .help-card button { color: var(--green); border: 0; background: none; padding: 0; font-size: 11px; font-weight: 700; }
+    .profile { padding: 13px 5px 0; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+    .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #e9e1d3; color: #78684e; font-size: 11px; font-weight: 750; flex: none; }
+    .profile-info { min-width: 0; }
+    .profile-info strong { display: block; font-size: 12px; }
+    .profile-info span { color: var(--muted); font-size: 10px; }
+    .profile-menu { margin-left: auto; border: 0; background: none; color: var(--green); font-size: 10px; font-weight: 700; white-space: nowrap; padding: 5px 0 5px 4px; }
+    .main { width: calc(100% - 228px); margin-left: 228px; }
+    .topbar { height: 68px; padding: 0 40px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.8); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 4; backdrop-filter: blur(12px); }
+    .breadcrumb { color: #9ba19d; font-size: 12px; }
+    .breadcrumb b { color: #454e48; font-weight: 600; }
+    .top-actions { display: flex; align-items: center; gap: 19px; }
+    .top-search { width: 216px; height: 35px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; display: flex; gap: 8px; align-items: center; background: #fff; }
+    .top-search svg { width: 15px; color: #9da49e; }
+    .top-search input { border: 0; outline: 0; width: 100%; font-size: 11px; }
+    .icon-button { position: relative; background: transparent; border: 0; color: #757e78; padding: 4px; display: grid; place-items: center; }
+    .icon-button svg { width: 18px; }
+    .notice-dot { width: 6px; height: 6px; position: absolute; top: 0; right: 0; background: #e09a58; border-radius: 50%; border: 1px solid white; }
+    .content { max-width: 1300px; margin: auto; padding: 30px 40px 55px; }
+    .greeting-row { display: flex; align-items: end; justify-content: space-between; margin-bottom: 25px; }
+    .eyebrow { display: flex; align-items: center; gap: 7px; color: var(--green); text-transform: uppercase; letter-spacing: 1.15px; font-size: 10px; font-weight: 750; margin-bottom: 8px; }
+    .live-dot { width: 6px; height: 6px; background: #55a37a; border-radius: 50%; box-shadow: 0 0 0 3px #e7f1e9; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { font: 750 26px Manrope, sans-serif; letter-spacing: -.75px; margin-bottom: 5px; }
+    .subtitle { font-size: 12px; color: var(--muted); margin-bottom: 0; }
+    .button-primary, .button-secondary { border-radius: 8px; min-height: 37px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px; font-weight: 700; transition: .17s; }
+    .button-primary { color: #fff; border: 1px solid var(--green); background: var(--green); box-shadow: 0 3px 8px #237b581d; }
+    .button-primary:hover { background: var(--green-dark); transform: translateY(-1px); }
+    .button-secondary { color: #59645d; border: 1px solid var(--line); background: #fff; }
+    .button-secondary:hover { border-color: #ccd8cf; color: var(--green); }
+    .button-primary svg, .button-secondary svg { width: 14px; height: 14px; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 19px; }
+    .stat-card, .panel { background: white; border: 1px solid var(--line); border-radius: 11px; }
+    .stat-card { padding: 17px 17px 15px; min-height: 108px; }
+    .stat-top { display: flex; align-items: center; justify-content: space-between; color: #7b847e; font-size: 11px; font-weight: 550; }
+    .stat-icon { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 8px; background: #f3f5f1; color: #67746a; }
+    .stat-icon svg { width: 15px; }
+    .stat-icon.green { background: #eef5ef; color: var(--green); }
+    .stat-icon.amber { background: #fbf4e9; color: #bd8a42; }
+    .stat-icon.blue { background: #eef3f7; color: #66839a; }
+    .stat-value { font: 750 25px Manrope,sans-serif; letter-spacing: -.7px; margin-top: 9px; }
+    .stat-foot { margin-top: 2px; color: #9aa29c; font-size: 10px; }
+    .stat-foot em { color: var(--green); font-style: normal; font-weight: 700; }
+    .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(260px, .92fr); gap: 17px; }
+    .panel { min-width: 0; padding: 18px; }
+    .panel + .panel { margin-top: 0; }
+    .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+    .panel-heading h2 { font: 700 14px Manrope,sans-serif; letter-spacing: -.2px; margin: 0; }
+    .panel-heading p { font-size: 10px; color: #9aa29c; margin: 4px 0 0; }
+    .text-link { border: 0; background: transparent; color: var(--green); font-weight: 700; font-size: 10px; white-space: nowrap; padding: 5px 0 5px 8px; }
+    .project-list { display: grid; }
+    .project-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; padding: 13px 0; border-top: 1px solid #f0f1ef; }
+    .project-main { display: flex; gap: 11px; min-width: 0; }
+    .project-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: #f3f5f1; color: #748075; flex: none; }
+    .project-icon svg { width: 16px; }
+    .project-copy { min-width: 0; }
+    .project-copy strong { font-size: 11px; font-weight: 700; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .project-copy span { font-size: 10px; color: #969e98; display: block; margin-top: 5px; }
+    .project-row:hover .project-copy strong { color: var(--green); }
+    .project-side { display: flex; flex-direction: column; align-items: end; justify-content: center; gap: 6px; }
+    .pill { border-radius: 999px; padding: 4px 8px; font-size: 9px; font-weight: 700; white-space: nowrap; }
+    .pill.active { color: #4c845b; background: #eef6ee; }
+    .pill.review { color: #aa7b34; background: #fbf4e8; }
+    .pill.done { color: #737d77; background: #f1f2f0; }
+    .due { color: #a0a69f; font-size: 9px; }
+    .right-column { display: grid; align-content: start; gap: 16px; }
+    .progress-card { border: 1px solid #ecf1eb; background: #fbfcfa; border-radius: 9px; padding: 13px; margin-bottom: 10px; }
+    .progress-top { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; font-weight: 650; }
+    .progress-top span:last-child { color: var(--green); font-size: 10px; }
+    .progress-track { margin-top: 10px; height: 4px; border-radius: 9px; background: #e9ede8; overflow: hidden; }
+    .progress-fill { width: 72%; height: 100%; border-radius: inherit; background: #57a275; transition: width .3s; }
+    .progress-meta { display: flex; justify-content: space-between; margin-top: 8px; color: #9ba39d; font-size: 9px; }
+    .feed-item { display: flex; gap: 10px; padding: 11px 0; border-top: 1px solid #f0f1ef; }
+    .feed-avatar { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; color: var(--green); background: #edf4ed; font-size: 9px; font-weight: 750; }
+    .feed-copy { font-size: 10px; line-height: 1.5; color: #727c75; }
+    .feed-copy strong { color: #354039; font-weight: 700; }
+    .feed-copy time { display: block; color: #a4aaa5; font-size: 9px; margin-top: 2px; }
+    .upload-box { border: 1px dashed #d9e1d9; border-radius: 9px; padding: 15px 12px; text-align: center; transition: .2s; cursor: pointer; background: #fcfdfb; }
+    .upload-box:hover, .upload-box.dragging { border-color: #80ad8e; background: #f4f9f3; }
+    .upload-icon { color: var(--green); margin: 0 auto 7px; width: 24px; }
+    .upload-box strong { display: block; font-size: 10px; }
+    .upload-box span { display: block; color: #a0a7a1; font-size: 9px; margin-top: 4px; }
+    .file-list { margin-top: 9px; }
+    .file-item { display: flex; align-items: center; gap: 8px; padding: 7px 1px; font-size: 9px; color: #525e55; border-top: 1px solid #f0f1ef; }
+    .file-item svg { width: 14px; color: var(--green); }
+    .file-item small { color: #9da59f; margin-left: auto; }
+    #file-input { display: none; }
+    .section-view { display: none; }
+    .section-view.visible { display: block; }
+    .view-toolbar { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+    .filter-input { min-width: 200px; height: 36px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; outline: none; background: #fff; }
+    .filter-input:focus, input:focus, textarea:focus, select:focus { border-color: #9bbba1; }
+    .filter-select { height: 36px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 0 9px; color: #566159; }
+    .view-results { display: grid; gap: 10px; }
+    .directory-card { padding: 16px; background: #fff; border: 1px solid var(--line); border-radius: 10px; display: flex; align-items: center; gap: 12px; }
+    .directory-logo { width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; color: #4d7858; background: #edf3eb; font: 800 15px Manrope,sans-serif; flex: none; }
+    .directory-copy { flex: 1; min-width: 0; }
+    .directory-copy strong { font-size: 12px; }
+    .directory-copy p { font-size: 10px; color: #838c86; margin: 4px 0; }
+    .tag-row { display: flex; gap: 5px; flex-wrap: wrap; }
+    .tag { color: #718078; background: #f3f5f2; border-radius: 5px; padding: 4px 6px; font-size: 9px; }
+    .directory-meta { text-align: right; padding: 0 10px; color: #848d86; font-size: 10px; line-height: 1.8; }
+    .directory-meta b { color: #ba883d; }
+    .messages-layout { display: grid; grid-template-columns: 250px 1fr; min-height: 465px; border: 1px solid var(--line); border-radius: 11px; background: white; overflow: hidden; }
+    .conversations { border-right: 1px solid var(--line); padding: 15px; }
+    .conversation-row { display: flex; align-items: center; gap: 9px; border: 0; background: transparent; padding: 11px 6px; width: 100%; text-align: left; border-radius: 8px; }
+    .conversation-row:hover, .conversation-row.selected { background: #f2f6f1; }
+    .conversation-row .feed-avatar { width: 32px; height: 32px; }
+    .conversation-row span strong, .conversation-row span small { display: block; }
+    .conversation-row strong { font-size: 10px; }
+    .conversation-row small { font-size: 9px; color: #9ba39d; margin-top: 3px; }
+    .chat { display: flex; flex-direction: column; min-width: 0; }
+    .chat-header { padding: 12px 15px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 11px; }
+    .chat-body { padding: 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; flex: 1; overflow-y: auto; max-height: 350px; }
+    .chat-message { max-width: 78%; padding: 10px 12px; border-radius: 3px 12px 12px 12px; background: #f3f5f1; font-size: 10px; line-height: 1.6; color: #566159; }
+    .chat-message.mine { align-self: flex-end; border-radius: 12px 3px 12px 12px; background: #edf5ef; }
+    .chat-message time { display: block; font-size: 8px; color: #a0a8a1; margin-top: 4px; text-align: right; }
+    .chat-compose { padding: 12px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
+    .chat-compose input { border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; outline: none; flex: 1; font-size: 10px; }
+    .chat-compose button { width: 36px; border-radius: 8px; background: var(--green); color: white; border: 0; }
+    .payment-card { padding: 20px; max-width: 630px; background: #fff; border: 1px solid var(--line); border-radius: 11px; }
+    .payment-row { display: flex; justify-content: space-between; padding: 13px 0; border-top: 1px solid #f0f1ef; color: #717a74; font-size: 11px; }
+    .payment-row strong { color: #303a33; }
+    .empty-filter { color: #979f99; font-size: 11px; padding: 23px; background: white; border: 1px solid var(--line); border-radius: 9px; }
+    .toast { position: fixed; z-index: 20; right: 22px; bottom: 22px; padding: 12px 16px; border-radius: 9px; background: #25382c; color: white; font-size: 11px; box-shadow: var(--shadow); transform: translateY(15px); opacity: 0; pointer-events: none; transition: .2s; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .overlay { position: fixed; z-index: 10; inset: 0; padding: 20px; background: #17231d62; display: none; place-items: center; }
+    .overlay.open { display: grid; }
+    .modal { background: white; border-radius: 13px; padding: 23px; width: min(100%, 460px); max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 80px #1113; }
+    .modal-head { display: flex; justify-content: space-between; align-items: start; margin-bottom: 18px; }
+    .modal-head h2 { font: 750 17px Manrope,sans-serif; margin: 0; }
+    .modal-head p { margin: 5px 0 0; color: #8b948e; font-size: 10px; }
+    .modal-close { border: 0; background: transparent; font-size: 19px; color: #929a94; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; margin-bottom: 5px; color: #657068; font-size: 10px; font-weight: 700; }
+    .field input, .field textarea, .field select { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 9px 10px; outline: none; font-size: 11px; background: white; color: #364139; }
+    .field textarea { min-height: 72px; resize: vertical; }
+    .modal-actions { display: flex; justify-content: end; gap: 8px; padding-top: 4px; }
+    .star-row { display: flex; gap: 7px; margin: 12px 0 20px; }
+    .star-button { border: 0; background: transparent; color: #d8dbd7; font-size: 28px; padding: 0; }
+    .star-button.selected { color: #e4ad57; }
+    .mobile-menu { display: none; border: 0; background: transparent; color: #59645d; }
+
+    @media (min-width: 1400px) { .content { padding-top: 39px; } }
+    @media (max-width: 1050px) {
+      .sidebar { width: 205px; }
+      .main { margin-left: 205px; width: calc(100% - 205px); }
+      .content { padding-left: 25px; padding-right: 25px; }
+      .topbar { padding: 0 25px; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .right-column { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 700px) {
+      .sidebar { width: 248px; transform: translateX(-102%); transition: transform .22s; box-shadow: var(--shadow); }
+      .sidebar.mobile-open { transform: translateX(0); }
+      .main { width: 100%; margin-left: 0; }
+      .topbar { padding: 0 16px; height: 58px; }
+      .mobile-menu { display: block; }
+      .breadcrumb { margin-right: auto; margin-left: 9px; }
+      .top-search { width: 36px; border: 0; padding: 0; justify-content: center; }
+      .top-search input { display: none; }
+      .top-actions { gap: 13px; }
+      .content { padding: 24px 16px 40px; }
+      .greeting-row { align-items: start; gap: 12px; }
+      h1 { font-size: 22px; }
+      .greeting-row > .button-primary { padding: 0 10px; font-size: 10px; white-space: nowrap; }
+      .stats { gap: 9px; }
+      .stat-card { padding: 13px; min-height: 98px; }
+      .stat-value { font-size: 22px; }
+      .right-column { grid-template-columns: 1fr; }
+      .directory-card { align-items: start; flex-wrap: wrap; }
+      .directory-meta { padding: 0; text-align: left; width: 100%; }
+      .messages-layout { grid-template-columns: 1fr; }
+      .conversations { border-right: 0; border-bottom: 1px solid var(--line); display: flex; overflow-x: auto; padding: 8px; }
+      .conversation-row { min-width: 145px; }
+      .filter-input { min-width: 0; flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="handoff home">
+        <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M17 7 7 17"/></svg></span>
+        handoff
+      </a>
+      <div class="workspace-label">YOUR WORKSPACE</div>
+      <button class="role-select" id="role-switch" aria-label="Switch account role">
+        <span class="role-left"><span class="role-dot" id="role-icon"></span><span id="role-name">Client workspace</span></span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m7 10 5 5 5-5"/></svg>
+      </button>
+      <div class="nav-label">WORKSPACE</div>
+      <nav class="nav">
+        <button class="nav-item active" data-view="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>Overview</button>
+        <button class="nav-item" data-view="projects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h5.5A2.5 2.5 0 0 1 20 9.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/></svg>Projects<span class="nav-count" id="project-count">4</span></button>
+        <button class="nav-item" data-view="discover"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.3 4.3"/><path d="m8 11 2 2 4-4"/></svg>Discover partners</button>
+        <button class="nav-item" data-view="documents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10z"/><path d="M13 3v7h7M8 15h8M8 18h5"/></svg>Documents<span class="nav-count">3</span></button>
+        <button class="nav-item" data-view="messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></svg>Messages<span class="nav-count">2</span></button>
+        <button class="nav-item" data-view="payments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/></svg>Payments</button>
+      </nav>
+      <div class="nav-label">ACCOUNT</div>
+      <nav class="nav">
+        <button class="nav-item" data-view="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>My profile</button>
+        <button class="nav-item" id="settings-button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.2.9-1.2 2.1-1.5-.5a7.5 7.5 0 0 1-1.4.8l-.3 1.6h-2.5l-.3-1.6a7.5 7.5 0 0 1-1.4-.8l-1.5.5-1.2-2.1 1.2-.9a7 7 0 0 1 0-1.6l-1.2-.9 1.2-2.1 1.5.5a7.5 7.5 0 0 1 1.4-.8l.3-1.6h2.5l.3 1.6a7.5 7.5 0 0 1 1.4.8l1.5-.5 1.2 2.1-1.2.9a7 7 0 0 1 0 1.5Z" transform="translate(-1 -1) scale(.95)"/></svg>Settings</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="help-card"><strong>Here to help</strong><p>Questions about your workspace? Our team is just a message away.</p><button id="help-button">Visit help center →</button></div>
+        <div class="profile"><div class="avatar" id="user-avatar">JD</div><div class="profile-info"><strong id="user-name">Jordan Davis</strong><span id="user-company">Acme Studio</span></div><button class="profile-menu" id="profile-menu" aria-label="Demo sign in" title="Demo sign in">Sign in</button></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobile-menu" aria-label="Open navigation"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div class="breadcrumb">Workspace <span style="padding:0 7px;color:#c0c6c1">/</span> <b id="breadcrumb-current">Overview</b><span style="margin-left:10px;color:#a0a7a1;font-size:9px">PROTOTYPE · SAMPLE DATA</span></div>
+        <div class="top-actions">
+          <label class="top-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.3 4.3"/></svg><input id="global-search" placeholder="Search anything..."></label>
+          <button class="icon-button" id="notification-button" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notice-dot"></span></button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="section-view visible" id="view-overview">
+          <div class="greeting-row">
+            <div><div class="eyebrow"><span class="live-dot"></span> THURSDAY, OCTOBER 22</div><h1 id="greeting">Good morning, Jordan</h1><p class="subtitle">A little progress goes a long way. Here's what's happening.</p></div>
+            <button class="button-primary" id="new-project"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span id="new-project-label">New project</span></button>
+          </div>
+          <div class="stats">
+            <div class="stat-card"><div class="stat-top">Active projects<span class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h5.5A2.5 2.5 0 0 1 20 9.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/></svg></span></div><div class="stat-value" id="active-stat">03</div><div class="stat-foot"><em>↑ 1</em> from last month</div></div>
+            <div class="stat-card"><div class="stat-top">In quality review<span class="stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 11l2 2 4-4m4 3a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"/></svg></span></div><div class="stat-value">01</div><div class="stat-foot">Ready for your feedback</div></div>
+            <div class="stat-card"><div class="stat-top">Documents shared<span class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10z"/><path d="M13 3v7h7"/></svg></span></div><div class="stat-value" id="doc-stat">12</div><div class="stat-foot">Organized by project · sample data</div></div>
+            <div class="stat-card"><div class="stat-top">Saved on travel<span class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v20M17 7H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span></div><div class="stat-value">$2,480</div><div class="stat-foot">No meetings. Just momentum.</div></div>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel">
+              <div class="panel-heading"><div><h2>Projects in motion</h2><p>Your work, at a glance</p></div><button class="text-link" data-goto="projects">View all projects →</button></div>
+              <div class="project-list" id="overview-projects"></div>
+              <button class="button-secondary" id="browse-projects" style="width:100%;margin-top:10px">Explore your projects</button>
+            </section>
+            <div class="right-column">
+              <section class="panel">
+                <div class="panel-heading"><div><h2>Latest activity</h2><p>A little update from your team</p></div><button class="text-link" data-goto="messages">See all</button></div>
+                <div id="activity-feed">
+                  <div class="feed-item"><div class="feed-avatar">SC</div><div class="feed-copy"><strong>Sophie Chen</strong> shared the first draft of your Q3 expense report.<time>12 minutes ago · Harbor BPO</time></div></div>
+                  <div class="feed-item"><div class="feed-avatar">MR</div><div class="feed-copy"><strong>Marcus Reed</strong> commented on the invoice processing brief.<time>Yesterday at 3:42 PM · Harbor BPO</time></div></div>
+                  <div class="feed-item"><div class="feed-avatar">✓</div><div class="feed-copy"><strong>Monthly bookkeeping</strong> passed quality review and is ready for you.<time>Yesterday at 10:18 AM</time></div></div>
+                </div>
+              </section>
+              <section class="panel">
+                <div class="panel-heading" style="margin-bottom:12px"><div><h2>Share a document</h2><p>Prototype only · files are not transmitted.</p></div></div>
+                <label class="upload-box" id="upload-box" for="file-input">
+                  <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m-4 4 4-4 4 4"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg>
+                  <strong>Drop a file here, or <span style="display:inline;color:var(--green);font-weight:700">browse</span></strong>
+                  <span>PDF, DOCX, XLSX · up to 25 MB</span>
+                </label>
+                <input id="file-input" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt">
+                <input id="delivery-input" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg,.txt" hidden>
+                <div class="file-list" id="file-list"><div class="file-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10z"/><path d="M13 3v7h7"/></svg>Q3-expenses.xlsx<small>Shared · 2.4 MB</small></div></div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-view" id="view-projects">
+          <div class="greeting-row"><div><div class="eyebrow"><span class="live-dot"></span> YOUR WORKSPACE</div><h1>Projects</h1><p class="subtitle">Every brief, milestone, and delivery in one place.</p></div><button class="button-primary" id="projects-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span id="projects-new-label">New project</span></button></div>
+          <div class="view-toolbar"><input class="filter-input" id="project-filter" placeholder="Search projects..."><select class="filter-select" id="status-filter"><option value="all">All statuses</option><option value="In progress">In progress</option><option value="In review">In review</option><option value="Completed">Completed</option></select></div>
+          <div class="panel"><div class="project-list" id="all-projects"></div></div>
+        </section>
+
+        <section class="section-view" id="view-discover">
+          <div class="greeting-row"><div><div class="eyebrow"><span class="live-dot"></span> FIND YOUR PEOPLE</div><h1 id="discover-title">Meet your next partner.</h1><p class="subtitle" id="discover-subtitle">The right people make the work feel lighter.</p></div><button class="button-secondary" id="post-project">Post a project request</button></div>
+          <div class="view-toolbar"><input class="filter-input" id="partner-filter" placeholder="Search teams, services, or expertise..."><select class="filter-select" id="service-filter"><option value="all">All services</option><option>Bookkeeping</option><option>Customer support</option><option>Data entry</option><option>Document processing</option></select></div>
+          <div class="view-results" id="partners-list"></div>
+        </section>
+
+        <section class="section-view" id="view-documents">
+          <div class="greeting-row"><div><div class="eyebrow"><span class="live-dot"></span> YOUR DOCUMENT LIBRARY</div><h1>Documents</h1><p class="subtitle">A prototype view of the files shared with your project partners.</p></div><button class="button-primary" id="documents-upload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Upload a document</button></div>
+          <div class="view-toolbar"><input class="filter-input" id="doc-filter" placeholder="Search documents..."><select class="filter-select" id="doc-project-filter"><option value="all">All projects</option><option>Q3 expense report</option><option>Monthly bookkeeping</option><option>Invoice processing</option></select></div>
+          <div class="panel"><div class="project-list" id="documents-list"></div></div>
+        </section>
+
+        <section class="section-view" id="view-messages">
+          <div class="greeting-row"><div><div class="eyebrow"><span class="live-dot"></span> ALWAYS IN THE LOOP</div><h1>Messages</h1><p class="subtitle">Good work starts with a good conversation.</p></div></div>
+          <div class="messages-layout"><div class="conversations"><div class="nav-label" style="padding-left:4px">RECENT</div><button class="conversation-row selected"><div class="feed-avatar">SC</div><span><strong>Sophie Chen</strong><small>That draft looks great…</small></span></button><button class="conversation-row"><div class="feed-avatar">MR</div><span><strong>Marcus Reed</strong><small>Updated the brief for you</small></span></button><button class="conversation-row"><div class="feed-avatar" style="background:#f2eee6;color:#927447">HB</div><span><strong>Harbor BPO team</strong><small>2 members · 1 project</small></span></button></div>
+            <div class="chat"><div class="chat-header"><div class="feed-avatar">SC</div>Sophie Chen <span class="live-dot" style="margin-left:auto"></span></div><div class="chat-body" id="chat-body"><div class="chat-message">Hi Jordan! I've uploaded the first draft of your Q3 expense report. The flagged transactions are highlighted in yellow for a quick review.<time>10:32 AM</time></div><div class="chat-message mine">Thanks, Sophie! I'll take a look this afternoon. Could you double-check the travel expenses from the second week of September?<time>10:41 AM</time></div><div class="chat-message">Absolutely — I'll pull the receipts and add a note. Let me know if anything else comes up!<time>10:44 AM</time></div></div><form class="chat-compose" id="chat-form"><input id="chat-input" placeholder="Write a message..."><button type="submit" aria-label="Send message"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13"/></svg></button></form></div></div>
+        </section>
+
+        <section class="section-view" id="view-payments">
+          <div class="greeting-row"><div><div class="eyebrow"><span class="live-dot"></span> SIMPLE, CLEAR PAYMENTS</div><h1>Payments</h1><p class="subtitle">Review invoices and payment status in one place.</p></div></div>
+          <div class="payment-card"><div class="panel-heading"><div><h2>October statement</h2><p>Transactions with Harbor BPO</p></div><span class="pill active">Up to date</span></div><div class="payment-row"><span>Invoice processing · INV-2048</span><strong>$640.00</strong></div><div class="payment-row"><span>Monthly bookkeeping · INV-2031</span><strong>$1,200.00</strong></div><div class="payment-row"><span>Customer support · INV-2012</span><strong>$890.00</strong></div><div class="payment-row" style="font-weight:700;color:#303a33"><span>Total this month</span><strong>$2,730.00</strong></div><button class="button-primary" id="pay-button" style="margin-top:11px">Review and pay invoice</button><p style="color:#a0a7a1;font-size:9px;margin:12px 0 0">Payments are securely processed. Your financial details are never shared with your service team.</p></div>
+        </section>
+
+        <section class="section-view" id="view-profile">
+          <div class="greeting-row"><div><div class="eyebrow"><span class="live-dot"></span> YOUR ACCOUNT</div><h1>My profile</h1><p class="subtitle">The details that help partners get to know you.</p></div><button class="button-primary" id="edit-profile">Edit profile</button></div>
+          <div class="payment-card"><div class="profile" style="border:0;padding:0 0 16px"><div class="avatar" id="large-avatar" style="width:48px;height:48px;font-size:14px">JD</div><div class="profile-info"><strong id="profile-full-name">Jordan Davis</strong><span id="profile-company">Acme Studio</span></div></div><div class="payment-row"><span>Email</span><strong id="profile-email">jordan@acmestudio.co</strong></div><div class="payment-row"><span>Account type</span><strong id="profile-type">Client</strong></div><div class="payment-row"><span>Member since</span><strong>March 2025</strong></div><button class="button-secondary" id="rate-button" style="margin-top:12px">Rate your latest project</button></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal"><div class="modal-head"><div><h2 id="modal-title">Start a new project</h2><p id="modal-subtitle">Share a few details. We'll take it from here.</p></div><button class="modal-close" id="modal-close" aria-label="Close">×</button></div><div id="modal-content"></div></div></div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const icons = {
+      briefcase: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></svg>',
+      spreadsheet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16m6-10v10"/></svg>',
+      support: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><path d="M4 13a2 2 0 0 0 2 2h1v-5H6a2 2 0 0 0-2 2zm16 0a2 2 0 0 1-2 2h-1v-5h1a2 2 0 0 1 2 2zm-4 5c-1 2-3 2-5 2"/></svg>',
+      doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10z"/><path d="M13 3v7h7M8 14h8M8 17h6"/></svg>'
+    };
+
+    let isBpo = false;
+    let activeView = "overview";
+    let rateValue = 5;
+    const projects = [
+      { name: "Q3 expense report", client: "Acme Studio", partner: "Harbor BPO", status: "In progress", date: "Due Oct 28", percent: 72, icon: "spreadsheet", budget: "$840" },
+      { name: "Monthly bookkeeping", client: "Acme Studio", partner: "Harbor BPO", status: "In review", date: "Ready today", percent: 100, icon: "briefcase", budget: "$1,200" },
+      { name: "Customer support — October", client: "Acme Studio", partner: "Northstar Ops", status: "In progress", date: "Due Oct 31", percent: 45, icon: "support", budget: "$890" },
+      { name: "Invoice processing", client: "Acme Studio", partner: "Harbor BPO", status: "Completed", date: "Oct 18", percent: 100, icon: "doc", budget: "$640" }
+    ];
+    const partners = [
+      { initials: "HB", name: "Harbor BPO", desc: "A detail-loving team that gives growing businesses their time back.", services: ["Bookkeeping", "Document processing", "Data entry"], rating: "4.9", reviews: 128, location: "Manila · 28 specialists", price: "From $18 / hour" },
+      { initials: "NO", name: "Northstar Operations", desc: "Thoughtful customer support and operations that feel like an extension of your team.", services: ["Customer support", "Data entry"], rating: "4.8", reviews: 96, location: "Cebu City · 42 specialists", price: "From $22 / hour" },
+      { initials: "PC", name: "Paperless Co.", desc: "Quietly excellent back-office work, with a focus on accuracy and information security.", services: ["Document processing", "Bookkeeping"], rating: "4.9", reviews: 74, location: "Kuala Lumpur · 19 specialists", price: "From $20 / hour" },
+      { initials: "SF", name: "Sunward Fulfillment", desc: "Flexible, friendly teams for the administrative work that keeps your business moving.", services: ["Data entry", "Customer support"], rating: "4.7", reviews: 52, location: "Davao · 35 specialists", price: "From $16 / hour" }
+    ];
+    let documents = [
+      { name: "Q3-expenses.xlsx", project: "Q3 expense report", detail: "2.4 MB · Shared Oct 20" },
+      { name: "expense-policy.pdf", project: "Q3 expense report", detail: "840 KB · Shared Oct 18" },
+      { name: "September-receipts.zip", project: "Q3 expense report", detail: "8.1 MB · Shared Oct 16" },
+      { name: "accounts-payable.csv", project: "Invoice processing", detail: "392 KB · Shared Oct 12" },
+      { name: "invoice-processing-brief.pdf", project: "Invoice processing", detail: "1.1 MB · Shared Oct 10" },
+      { name: "monthly-ledger.xlsx", project: "Monthly bookkeeping", detail: "1.7 MB · Shared Oct 08" }
+    ];
+
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const esc = (value) => String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+
+    function toast(message) {
+      const element = $("#toast");
+      element.textContent = message;
+      element.classList.add("show");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => element.classList.remove("show"), 2500);
+    }
+    function switchView(name) {
+      activeView = name;
+      document.querySelectorAll(".section-view").forEach(section => section.classList.toggle("visible", section.id === `view-${name}`));
+      document.querySelectorAll(".nav-item[data-view]").forEach(button => button.classList.toggle("active", button.dataset.view === name));
+      const labels = { overview: "Overview", projects: "Projects", discover: "Discover partners", documents: "Documents", messages: "Messages", payments: "Payments", profile: "My profile" };
+      $("#breadcrumb-current").textContent = labels[name] || name;
+      $("#sidebar").classList.remove("mobile-open");
+      if (name === "projects") renderProjects();
+      if (name === "discover") renderPartners();
+      if (name === "documents") renderDocuments();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    function projectMarkup(project, index) {
+      const pill = project.status === "In progress" ? "active" : project.status === "In review" ? "review" : "done";
+      return `<div class="project-row" data-project="${index}" tabindex="0" role="button" aria-label="Open ${esc(project.name)}"><div class="project-main"><div class="project-icon">${icons[project.icon]}</div><div class="project-copy"><strong>${esc(project.name)}</strong><span>${esc(isBpo ? project.client : project.partner)} <span style="margin:0 4px;color:#c4c9c5">·</span> ${esc(project.budget)}</span></div></div><div class="project-side"><span class="pill ${pill}">${esc(project.status)}</span><span class="due">${esc(project.date)}</span></div></div>`;
+    }
+    function renderOverview() {
+      $("#overview-projects").innerHTML = projects.slice(0, 3).map(projectMarkup).join("");
+      $("#active-stat").textContent = String(projects.filter(p => p.status !== "Completed").length).padStart(2, "0");
+      $("#project-count").textContent = projects.length;
+      bindProjectRows();
+    }
+    function renderProjects() {
+      const query = ($("#project-filter").value || "").trim().toLowerCase();
+      const status = $("#status-filter").value;
+      const matching = projects.map((project, index) => ({ project, index })).filter(({ project }) => (status === "all" || project.status === status) && `${project.name} ${project.partner} ${project.status}`.toLowerCase().includes(query));
+      $("#all-projects").innerHTML = matching.length ? matching.map(({ project, index }) => projectMarkup(project, index)).join("") : '<div class="empty-filter">No projects match that search. Try a different name or filter.</div>';
+      bindProjectRows();
+    }
+    function bindProjectRows() {
+      document.querySelectorAll(".project-row[data-project]").forEach(row => {
+        row.onclick = () => openProject(Number(row.dataset.project));
+        row.onkeydown = event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openProject(Number(row.dataset.project)); } };
+      });
+    }
+    function openProject(index) {
+      const project = projects[index];
+      openModal(`Project details`, `A clear view of the work and what's next.`, `
+        <div class="payment-row" style="padding-top:0"><span>Project</span><strong>${esc(project.name)}</strong></div>
+        <div class="payment-row"><span>${isBpo ? "Client" : "BPO partner"}</span><strong>${esc(isBpo ? project.client : project.partner)}</strong></div>
+        <div class="payment-row"><span>Status</span><strong>${esc(project.status)}</strong></div>
+        <div class="payment-row"><span>Project budget</span><strong>${esc(project.budget)}</strong></div>
+        <div class="progress-track" style="margin:14px 0 5px"><div class="progress-fill" style="width:${project.percent}%"></div></div>
+        <div class="progress-meta"><span>Project progress</span><span>${project.percent}%</span></div>
+        <div class="modal-actions" style="margin-top:18px"><button class="button-secondary" data-action="message">Message ${isBpo ? "client" : "partner"}</button>${isBpo ? '<button class="button-primary" data-action="deliverable">Upload finished work</button>' : project.status === "In review" ? '<button class="button-primary" data-action="rate">Review & rate</button>' : '<button class="button-primary" data-action="done">Got it</button>'}</div>`);
+      $('[data-action="message"]').onclick = () => { closeModal(); switchView("messages"); };
+      const rateButton = $('[data-action="rate"]');
+      if (rateButton) rateButton.onclick = () => showRating(index);
+      const deliverableButton = $('[data-action="deliverable"]');
+      if (deliverableButton) deliverableButton.onclick = () => {
+        closeModal();
+        $("#delivery-input").dataset.project = project.name;
+        $("#delivery-input").click();
+      };
+      const doneButton = $('[data-action="done"]');
+      if (doneButton) doneButton.onclick = closeModal;
+    }
+    function renderPartners() {
+      const query = ($("#partner-filter").value || "").trim().toLowerCase();
+      const service = $("#service-filter").value;
+      let entries = partners;
+      if (isBpo) entries = [
+        { initials: "AC", name: "Acme Studio", desc: "Independent creative studio looking for a reliable partner for ongoing back-office work.", services: ["Bookkeeping", "Document processing"], rating: "New", reviews: 0, location: "Remote · 12-person team", price: "Project budget $1.2k–$2k" },
+        { initials: "GL", name: "Goodland Goods", desc: "An independent homewares brand looking for a friendly, detail-oriented customer support partner.", services: ["Customer support", "Data entry"], rating: "4.8", reviews: 17, location: "Singapore · 8-person team", price: "Project budget $800–$1.5k" },
+        { initials: "FL", name: "Fieldwork Labs", desc: "A growing research studio seeking help organizing and processing project documents.", services: ["Document processing", "Data entry"], rating: "New", reviews: 0, location: "Remote · 16-person team", price: "Project budget $600–$1k" }
+      ];
+      entries = entries.filter(entry => (!query || `${entry.name} ${entry.desc} ${entry.services.join(" ")}`.toLowerCase().includes(query)) && (service === "all" || entry.services.includes(service)));
+      $("#partners-list").innerHTML = entries.length ? entries.map(entry => `<article class="directory-card"><div class="directory-logo">${esc(entry.initials)}</div><div class="directory-copy"><strong>${esc(entry.name)}</strong><p>${entry.offering ? `<strong>${esc(entry.offering)}.</strong> ` : ""}${esc(entry.desc)}</p><div class="tag-row">${entry.services.map(tag => `<span class="tag">${esc(tag)}</span>`).join("")}</div></div><div class="directory-meta"><b>★ ${esc(entry.rating)}</b>${entry.reviews ? ` (${entry.reviews} reviews)` : ""}<br>${esc(entry.location)}<br>${esc(entry.price)}</div><button class="button-secondary contact-partner" data-name="${esc(entry.name)}">${isBpo ? "View request" : "Say hello"}</button></article>`).join("") : '<div class="empty-filter">No partners found. Try another search or service.</div>';
+      document.querySelectorAll(".contact-partner").forEach(button => button.onclick = () => {
+        openModal(`Say hello to ${button.dataset.name}`, "A thoughtful introduction is a great place to start.", `<div class="field"><label>Your message</label><textarea id="partner-message" placeholder="Hi! I'm looking for help with..."></textarea></div><div class="field"><label>I'm interested in</label><select><option>Learning about your services</option><option>Discussing a project</option><option>Getting a quote</option></select></div><div class="modal-actions"><button class="button-secondary" id="cancel-modal">Cancel</button><button class="button-primary" id="send-intro">Send introduction</button></div>`);
+        $("#cancel-modal").onclick = closeModal;
+        $("#send-intro").onclick = () => { if (!$("#partner-message").value.trim()) { toast("Add a short message before sending."); return; } closeModal(); toast(`Introduction sent to ${button.dataset.name}.`); };
+      });
+    }
+    function renderDocuments() {
+      const query = ($("#doc-filter").value || "").trim().toLowerCase();
+      const project = $("#doc-project-filter").value;
+      const matching = documents.filter(doc => (project === "all" || doc.project === project) && `${doc.name} ${doc.project}`.toLowerCase().includes(query));
+      $("#documents-list").innerHTML = matching.length ? matching.map(doc => `<div class="project-row"><div class="project-main"><div class="project-icon">${icons.doc}</div><div class="project-copy"><strong>${esc(doc.name)}</strong><span>${esc(doc.project)} · ${esc(doc.detail)}</span></div></div><div class="project-side"><span class="pill active">Shared</span><button class="text-link" data-doc="${esc(doc.name)}">Download</button></div></div>`).join("") : '<div class="empty-filter">No documents match your search.</div>';
+      document.querySelectorAll("[data-doc]").forEach(button => button.onclick = () => toast(`Preparing ${button.dataset.doc} for download.`));
+    }
+    function openModal(title, subtitle, content) {
+      $("#modal-title").textContent = title;
+      $("#modal-subtitle").textContent = subtitle;
+      $("#modal-content").innerHTML = content;
+      $("#overlay").classList.add("open");
+    }
+    function closeModal() { $("#overlay").classList.remove("open"); }
+    function showNewProject() {
+      if (isBpo) {
+        openModal("Post a service", "Help clients understand what your team does best.", `
+          <form id="service-form">
+            <div class="field"><label for="service-name-input">Service name</label><input id="service-name-input" required placeholder="e.g. Accounts payable support"></div>
+            <div class="field"><label for="service-category-input">Service category</label><select id="service-category-input"><option>Bookkeeping</option><option>Customer support</option><option>Data entry</option><option>Document processing</option></select></div>
+            <div class="field"><label for="service-details-input">What makes your service special?</label><textarea id="service-details-input" required placeholder="Describe your team's experience and quality process..."></textarea></div>
+            <div class="field"><label for="service-rate-input">Starting rate</label><input id="service-rate-input" required placeholder="e.g. $18 / hour"></div>
+            <div class="modal-actions"><button type="button" class="button-secondary" id="cancel-modal">Cancel</button><button type="submit" class="button-primary">Publish service</button></div>
+          </form>`);
+        $("#cancel-modal").onclick = closeModal;
+        $("#service-form").onsubmit = event => {
+          event.preventDefault();
+          const name = $("#service-name-input").value.trim();
+          const category = $("#service-category-input").value;
+          const description = $("#service-details-input").value.trim();
+          const rate = $("#service-rate-input").value.trim();
+          if (!name || !description || !rate) return;
+          const company = $("#user-company").textContent;
+          partners.unshift({ initials: company.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase(), name: company, desc: description, services: [category], rating: "New", reviews: 0, location: "Your BPO workspace", price: `From ${rate}`, offering: name });
+          closeModal();
+          if (activeView === "discover") renderPartners();
+          toast("Your service is published in this prototype.");
+        };
+        return;
+      }
+      openModal("Start a new project", "Share a few details. We'll take it from here.", `
+        <form id="project-form">
+          <div class="field"><label for="project-name-input">What do you need help with?</label><input id="project-name-input" required placeholder="e.g. Monthly bookkeeping"></div>
+          <div class="field"><label for="project-service-input">Service</label><select id="project-service-input"><option>Bookkeeping</option><option>Customer support</option><option>Data entry</option><option>Document processing</option><option>Other back-office work</option></select></div>
+          <div class="field"><label for="project-details-input">A little more about the work</label><textarea id="project-details-input" placeholder="Tell partners what a successful project looks like..."></textarea></div>
+          <div class="field"><label for="project-budget-input">Estimated budget</label><select id="project-budget-input"><option>$500–$1,000</option><option>$1,000–$2,500</option><option>$2,500–$5,000</option><option>Let's discuss</option></select></div>
+          <div class="modal-actions"><button type="button" class="button-secondary" id="cancel-modal">Cancel</button><button type="submit" class="button-primary">Post project request</button></div>
+        </form>`);
+      $("#cancel-modal").onclick = closeModal;
+      $("#project-form").onsubmit = event => {
+        event.preventDefault();
+        const name = $("#project-name-input").value.trim();
+        if (!name) return;
+        const budget = $("#project-budget-input").value;
+        projects.unshift({ name, client: "Acme Studio", partner: isBpo ? "Open request" : "Finding a partner", status: "In progress", date: "Just created", percent: 0, icon: "briefcase", budget });
+        renderOverview();
+        closeModal();
+        toast("Your project request is live. Partners can now find you.");
+      };
+    }
+    function showRating(projectIndex) {
+      rateValue = 5;
+      openModal("How did we do?", "Your feedback helps great teams do even better work.", `<p style="font-size:11px;color:#748078;margin-bottom:6px">Rate your latest project with Harbor BPO</p><div class="star-row" id="star-row" role="radiogroup" aria-label="Rating">${[1,2,3,4,5].map(n => `<button class="star-button selected" data-star="${n}" aria-label="${n} stars" aria-checked="${n === 5}" role="radio">★</button>`).join("")}</div><div class="field"><label for="rating-comment">Anything you'd like them to know?</label><textarea id="rating-comment" placeholder="Share a note with the team (optional)"></textarea></div><div class="modal-actions"><button class="button-secondary" id="cancel-modal">Not now</button><button class="button-primary" id="submit-rating">Submit review</button></div>`);
+      document.querySelectorAll(".star-button").forEach(button => button.onclick = () => {
+        rateValue = Number(button.dataset.star);
+        document.querySelectorAll(".star-button").forEach(star => {
+          const selected = Number(star.dataset.star) <= rateValue;
+          star.classList.toggle("selected", selected);
+          star.setAttribute("aria-checked", String(Number(star.dataset.star) === rateValue));
+        });
+      });
+      $("#cancel-modal").onclick = closeModal;
+      $("#submit-rating").onclick = () => {
+        if (projectIndex !== undefined) {
+          projects[projectIndex].status = "Completed";
+          projects[projectIndex].date = "Reviewed just now";
+          renderOverview();
+          if (activeView === "projects") renderProjects();
+        }
+        closeModal();
+        toast(`Thank you for your ${rateValue}-star review!`);
+      };
+    }
+    function showDemoSignIn() {
+      openModal("Welcome back", "Sign in to your client or BPO workspace.", `<form id="signin-form">
+        <div class="field"><label for="signin-email">Email address</label><input id="signin-email" type="email" value="${isBpo ? "sophie@harborbpo.co" : "jordan@acmestudio.co"}" autocomplete="username" required></div>
+        <div class="field"><label for="signin-password">Password</label><input id="signin-password" type="password" value="prototype-demo" autocomplete="current-password" required></div>
+        <div class="field"><label for="signin-role">Workspace</label><select id="signin-role"><option value="client" ${isBpo ? "" : "selected"}>Client</option><option value="bpo" ${isBpo ? "selected" : ""}>BPO organization</option></select></div>
+        <p style="font-size:9px;color:#919a93;line-height:1.55">Demo only. Credentials are not verified, transmitted, or stored.</p>
+        <div class="modal-actions"><button type="button" class="button-secondary" id="cancel-modal">Cancel</button><button type="submit" class="button-primary">Sign in</button></div>
+      </form>`);
+      $("#cancel-modal").onclick = closeModal;
+      $("#signin-form").onsubmit = event => {
+        event.preventDefault();
+        const requestedBpo = $("#signin-role").value === "bpo";
+        if (requestedBpo !== isBpo) toggleRole();
+        closeModal();
+        toast(`Signed in to the ${requestedBpo ? "BPO" : "client"} demo workspace.`);
+      };
+    }
+    function toggleRole() {
+      isBpo = !isBpo;
+      $("#role-name").textContent = isBpo ? "BPO workspace" : "Client workspace";
+      $("#role-icon").innerHTML = isBpo ? icons.briefcase : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>';
+      $("#user-name").textContent = isBpo ? "Sophie Chen" : "Jordan Davis";
+      $("#user-company").textContent = isBpo ? "Harbor BPO" : "Acme Studio";
+      $("#user-avatar").textContent = isBpo ? "SC" : "JD";
+      $("#greeting").textContent = isBpo ? "Good morning, Sophie" : "Good morning, Jordan";
+      $("#new-project-label").textContent = isBpo ? "Post a service" : "New project";
+      $("#projects-new-label").textContent = isBpo ? "Post a service" : "New project";
+      $("#active-stat").textContent = isBpo ? "08" : String(projects.filter(p => p.status !== "Completed").length).padStart(2, "0");
+      $("#doc-stat").textContent = isBpo ? "28" : "12";
+      $("#large-avatar").textContent = isBpo ? "SC" : "JD";
+      $("#profile-full-name").textContent = isBpo ? "Sophie Chen" : "Jordan Davis";
+      $("#profile-company").textContent = isBpo ? "Harbor BPO" : "Acme Studio";
+      $("#profile-email").textContent = isBpo ? "sophie@harborbpo.co" : "jordan@acmestudio.co";
+      $("#profile-type").textContent = isBpo ? "BPO organization" : "Client";
+      $("#discover-title").textContent = isBpo ? "Find your next client." : "Meet your next partner.";
+      $("#discover-subtitle").textContent = isBpo ? "Find thoughtfully scoped projects from businesses ready to work." : "The right people make the work feel lighter.";
+      if (activeView === "discover") renderPartners();
+      toast(isBpo ? "BPO workspace preview" : "Client workspace preview");
+    }
+    function addFiles(fileList, projectName = "Q3 expense report") {
+      const accepted = Array.from(fileList).filter(file => file.size <= 25 * 1024 * 1024);
+      const tooLarge = Array.from(fileList).length - accepted.length;
+      accepted.forEach(file => {
+        const size = file.size > 1024 * 1024 ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+        documents.unshift({ name: file.name, project: projectName, detail: `${size} · Shared just now` });
+      });
+      $("#doc-stat").textContent = 12 + documents.length - 6;
+      renderDocuments();
+      if (accepted.length) toast(`${accepted.length} document${accepted.length === 1 ? "" : "s"} added to this prototype.`);
+      if (tooLarge) toast(`${tooLarge} file${tooLarge === 1 ? "" : "s"} exceeded the 25 MB limit.`);
+    }
+
+    document.querySelectorAll(".nav-item[data-view]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.view)));
+    document.querySelectorAll("[data-goto]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.goto)));
+    $("#role-switch").addEventListener("click", toggleRole);
+    $("#new-project").addEventListener("click", showNewProject);
+    $("#projects-new").addEventListener("click", showNewProject);
+    $("#post-project").addEventListener("click", showNewProject);
+    $("#browse-projects").addEventListener("click", () => switchView("projects"));
+    $("#project-filter").addEventListener("input", renderProjects);
+    $("#status-filter").addEventListener("change", renderProjects);
+    $("#partner-filter").addEventListener("input", renderPartners);
+    $("#service-filter").addEventListener("change", renderPartners);
+    $("#doc-filter").addEventListener("input", renderDocuments);
+    $("#doc-project-filter").addEventListener("change", renderDocuments);
+    $("#documents-upload").addEventListener("click", () => { switchView("overview"); $("#file-input").click(); });
+    $("#file-input").addEventListener("change", event => { addFiles(event.target.files); event.target.value = ""; });
+    $("#delivery-input").addEventListener("change", event => {
+      const projectName = event.target.dataset.project || "Project delivery";
+      addFiles(event.target.files, projectName);
+      if (event.target.files.length) toast(`Finished work attached for ${projectName}. Client notification simulated.`);
+      event.target.value = "";
+    });
+    $("#upload-box").addEventListener("dragover", event => { event.preventDefault(); $("#upload-box").classList.add("dragging"); });
+    $("#upload-box").addEventListener("dragleave", () => $("#upload-box").classList.remove("dragging"));
+    $("#upload-box").addEventListener("drop", event => { event.preventDefault(); $("#upload-box").classList.remove("dragging"); addFiles(event.dataTransfer.files); });
+    $("#overlay").addEventListener("click", event => { if (event.target === $("#overlay")) closeModal(); });
+    $("#modal-close").addEventListener("click", closeModal);
+    document.addEventListener("keydown", event => { if (event.key === "Escape") closeModal(); });
+    $("#chat-form").addEventListener("submit", event => {
+      event.preventDefault();
+      const input = $("#chat-input");
+      const message = input.value.trim();
+      if (!message) return;
+      const bubble = document.createElement("div");
+      bubble.className = "chat-message mine";
+      const text = document.createElement("span");
+      text.textContent = message;
+      const time = document.createElement("time");
+      time.textContent = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date());
+      bubble.append(text, time);
+      $("#chat-body").append(bubble);
+      $("#chat-body").scrollTop = $("#chat-body").scrollHeight;
+      input.value = "";
+    });
+    $("#pay-button").addEventListener("click", () => openModal("Review your payment", "You're in control. Review the total before proceeding.", `<div class="payment-row" style="padding-top:0"><span>October statement</span><strong>3 invoices</strong></div><div class="payment-row"><span>Amount due</span><strong>$2,730.00 USD</strong></div><div class="payment-row"><span>Payment method</span><strong>•••• 4242</strong></div><p style="font-size:10px;color:#89928b;line-height:1.6;margin:14px 0">This is a secure prototype checkout. No real payment will be processed.</p><div class="modal-actions"><button class="button-secondary" id="cancel-modal">Cancel</button><button class="button-primary" id="confirm-payment">Confirm payment</button></div>`));
+    $("#overlay").addEventListener("click", event => {
+      if (event.target === $("#overlay")) return;
+      if (event.target.id === "cancel-modal") { closeModal(); return; }
+      if (event.target.id === "confirm-payment") { closeModal(); toast("Payment recorded in this prototype."); }
+    });
+    $("#rate-button").addEventListener("click", showRating);
+    $("#notification-button").addEventListener("click", () => toast("You're all caught up — no new notifications."));
+    $("#help-button").addEventListener("click", () => toast("Our support team is here to help — say hello in Messages."));
+    $("#settings-button").addEventListener("click", () => toast("Your workspace is up to date."));
+    $("#profile-menu").addEventListener("click", showDemoSignIn);
+    $("#mobile-menu").addEventListener("click", () => $("#sidebar").classList.toggle("mobile-open"));
+    $("#global-search").addEventListener("keydown", event => {
+      if (event.key !== "Enter") return;
+      const query = event.target.value.trim();
+      if (!query) return;
+      switchView("discover");
+      $("#partner-filter").value = query;
+      renderPartners();
+      event.target.value = "";
+    });
+    $("#edit-profile").addEventListener("click", () => {
+      openModal("Edit your profile", "A little context makes better partnerships.", `<form id="profile-form"><div class="field"><label>Your name</label><input id="edit-name" value="${isBpo ? "Sophie Chen" : "Jordan Davis"}" required></div><div class="field"><label>Company</label><input id="edit-company" value="${isBpo ? "Harbor BPO" : "Acme Studio"}" required></div><div class="field"><label>Email</label><input type="email" id="edit-email" value="${isBpo ? "sophie@harborbpo.co" : "jordan@acmestudio.co"}" required></div><div class="modal-actions"><button type="button" class="button-secondary" id="cancel-modal">Cancel</button><button class="button-primary">Save changes</button></div></form>`);
+      $("#cancel-modal").onclick = closeModal;
+      $("#profile-form").onsubmit = event => {
+        event.preventDefault();
+        const name = $("#edit-name").value.trim();
+        const company = $("#edit-company").value.trim();
+        $("#user-name").textContent = name;
+        $("#user-company").textContent = company;
+        $("#greeting").textContent = `Good morning, ${name.split(" ")[0]}`;
+        $("#profile-full-name").textContent = name;
+        $("#profile-company").textContent = company;
+        $("#profile-email").textContent = $("#edit-email").value.trim();
+        $("#user-avatar").textContent = name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
+        $("#large-avatar").textContent = $("#user-avatar").textContent;
+        closeModal();
+        toast("Your profile has been updated.");
+      };
+    });
+
+    renderOverview();
+  </script>
+</body>
+</html>
